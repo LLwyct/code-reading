@@ -1,42 +1,44 @@
+# 1. Marabou 执行流程
+
 - [1. Marabou 执行流程](#1-marabou-执行流程)
   - [1.1. main.cpp](#11-maincpp)
   - [1.2. Marabou.run()](#12-marabourun)
   - [1.3. prepareInputQuery()](#13-prepareinputquery)
   - [1.4. propertyparser()](#14-propertyparser)
-  - [1.5. processSingleLine（）](#15-processsingleline)
-  - [1.6. inputQuery](#16-inputquery)
-  - [1.7. run.solveQuery()](#17-runsolvequery)
-  - [1.8. processInputQuery()](#18-processinputquery)
-  - [1.9. invokePreprocesser()](#19-invokepreprocesser)
-  - [1.10. createConstraintMatrix()](#110-createconstraintmatrix)
-  - [1.11. removeRedundantEquations](#111-removeredundantequations)
-  - [1.12. selectInitialVariablesForBasis()](#112-selectinitialvariablesforbasis)
+  - [1.5. processSingleLine()](#15-processsingleline)
+  - [1.6. run.solveQuery()](#16-runsolvequery)
+  - [1.7. processInputQuery()](#17-processinputquery)
+  - [1.8. invokePreprocesser()](#18-invokepreprocesser)
+  - [1.9. createConstraintMatrix()](#19-createconstraintmatrix)
+  - [1.10. removeRedundantEquations](#110-removeredundantequations)
+  - [1.11. selectInitialVariablesForBasis()](#111-selectinitialvariablesforbasis)
+  - [1.12. addAuxiliaryVariables()](#112-addauxiliaryvariables)
   - [1.13. initializeTableau()](#113-initializetableau)
   - [1.14. engine.solve()](#114-enginesolve)
 
-# 1. Marabou 执行流程
-
 ## 1.1. main.cpp
-主函数没什么好看的，只调用了 `run()` 函数。
-- DNC：分治模式，论文中提到如果开启了这个速度会快，但好像没有细说。
-```c++
+
+```cpp
 if ( options->getBool( Options::DNC_MODE ) )
     DnCMarabou().run();
 else
     Marabou( options->getInt( Options::VERBOSITY ) ).run();
 ```
+主函数只调用了 `run()` 函数。
+- DNC：分治模式，论文中提到如果开启了这个速度会快，但好像没有细说。
 
 ## 1.2. Marabou.run()
 
-没什么好说的就执行了两个函数，接下来重点看这两个函数
-- [1.3. prepareInputQuery()](#13-prepareinputquery)
-- [1.7. run.solveQuery()](#17-runsolvequery)
-```c++
+```cpp
 function run () {
     prepareInputQuery();
     solveQuery();
 }
 ```
+
+就执行了两个函数，接下来重点看这两个函数
+- [1.3. prepareInputQuery()](#13-prepareinputquery)
+- [1.6. run.solveQuery()](#16-runsolvequery)
 
 ## 1.3. prepareInputQuery()
 
@@ -186,7 +188,9 @@ void PropertyParser::parse( const String &propertyFilePath, InputQuery &inputQue
 
 理解约束怎么转换为输入的关键,代码较长。
 
- ## 1.5. processSingleLine（）
+[回到顶部](#1-marabou-执行流程)
+
+ ## 1.5. processSingleLine()
 
 ```c++
 void PropertyParser::processSingleLine( const String &line, InputQuery &inputQuery )
@@ -368,13 +372,7 @@ void PropertyParser::processSingleLine( const String &line, InputQuery &inputQue
 }
 ```
 
-
-
-## 1.6. inputQuery
-
-[参考资料](./InputQuery.md)
-
-## 1.7. run.solveQuery()
+## 1.6. run.solveQuery()
 
 ```c++
 void Marabou::solveQuery()
@@ -387,23 +385,23 @@ void Marabou::solveQuery()
 }
 ```
 主要包含两个步骤：
-1. `_engine.processInputQuery( _inputQuery )`，[GOTO](#18-processinputquery)
-2. `_engine.solve`
+1. `_engine.processInputQuery( _inputQuery )`，[GOTO](#17-processinputquery)
+2. `_engine.solve`，[GOTO](#114-enginesolve)
 
 
-## 1.8. processInputQuery()
+## 1.7. processInputQuery()
 
 [调用预处理器](./invokePreprocesser.md)
 
 [添加辅助变量](./makeAllEquationsEqualities.md)
 
-[创建约束矩阵](#110-createconstraintmatrix)
+[创建约束矩阵](#19-createconstraintmatrix)
 
-[移除冗余等式](#111-removeredundantequations)
+[移除冗余等式](#110-removeredundantequations)
 
 [选择基变量](#112-selectinitialvariablesforbasis)
 
-[初始化单纯形表](#113-initializetableau)
+[初始化单纯形表](#114-initializetableau)
 
 ```c++
 //Process the input query and pass the needed information to the underlying tableau. Return false if query is found to be infeasible,true otherwise.
@@ -442,16 +440,16 @@ bool Engine::processInputQuery( InputQuery &inputQuery, bool preprocess )
         f - b - aux == 0 && aux >= 0
         其中aux即为新的辅助变量，把辅助变量加入变量组，并把等式f - b + aux == 0加入_equtions
 
-        3. 在预处理数据的时候，很多信息都存放在inputQuery中，这里主战场已经来到了Engine上，因此这一步的操作是把inputQuery赋值给Engine的_preprocessedQuery，便于后续操作
+        1. 在预处理数据的时候，很多信息都存放在inputQuery中，这里主战场已经来到了Engine上，因此这一步的操作是把inputQuery赋值给Engine的_preprocessedQuery，便于后续操作
         
-        4. 返回处理后的InputQuery，_processor
+        2. 返回处理后的InputQuery，_processor
         */
         invokePreprocessor( inputQuery, preprocess );
         if ( _verbosity > 0 )
             printInputBounds( inputQuery );
 		//关键，怎么将约束啥的转化为矩阵。见下面
         double *constraintMatrix = createConstraintMatrix();
-        //移除冗余等式，见下面
+        //移除冗余等式，删除冗余行，创建了一个新的矩阵，并把ConstraintMatix复制过去，做了个行列式变换，把它变成阶梯式矩阵，应该是若行数_m大于阶梯的数，则多余的行为冗余行，具体见下面
         removeRedundantEquations( constraintMatrix );
 
         // The equations have changed, recreate the constraint matrix
@@ -460,7 +458,7 @@ bool Engine::processInputQuery( InputQuery &inputQuery, bool preprocess )
 		
         List<unsigned> initialBasis;
         List<unsigned> basicRows;
-        //没搞明白 ，干啥的？大概是确定初始基变量。
+        // 见1.12
         selectInitialVariablesForBasis( constraintMatrix, initialBasis, basicRows );
         //将等式右边全部变为0，通过添加辅助变量
         addAuxiliaryVariables();
@@ -504,11 +502,11 @@ bool Engine::processInputQuery( InputQuery &inputQuery, bool preprocess )
     return true;
 }
 ```
-[back](#18-processinputquery)
-## 1.9. invokePreprocesser()
+[回到顶部](#18-processinputquery)
+## 1.8. invokePreprocesser()
 [invokePreprocesser详细资料](./invokePreprocesser.md)
 
-## 1.10. createConstraintMatrix()
+## 1.9. createConstraintMatrix()
 
 ```c++
 double *Engine::createConstraintMatrix()
@@ -538,11 +536,12 @@ double *Engine::createConstraintMatrix()
             constraintMatrix[equationIndex*n + addend._variable] = addend._coefficient;
         // 主要是添加addend的系数
         /*
-         1  -1
-        -1      -1
-                     1  -1
-        -1       1
-                -1          -1
+          1  -1   0  0   0   0  
+         -1   0  -1  0   0   0  
+          0   0   0  1  -1   0  
+          0  -1   0  1   0   0  
+          0   0  -1  0   0  -1  
+
         */
         /*
         std::cout<<"The " << equationIndex << " times construct constraintMatrix:"<<std::endl;
@@ -559,9 +558,11 @@ double *Engine::createConstraintMatrix()
     return constraintMatrix;
 }
 ```
-[back](#18-processinputquery)
+[回到顶部](#18-processinputquery)
 
-## 1.11. removeRedundantEquations
+## 1.10. removeRedundantEquations
+
+删除冗余行，创建了一个新的矩阵，并把ConstraintMatix复制过去，做了个行列式变换，把它变成阶梯式矩阵，应该是若行数_m大于阶梯的数，则多余的行为冗余行
 
 ```c++
 void Engine::removeRedundantEquations( const double *constraintMatrix )
@@ -571,8 +572,10 @@ void Engine::removeRedundantEquations( const double *constraintMatrix )
     unsigned n = _preprocessedQuery.getNumberOfVariables();
 
     // Step 1: analyze the matrix to identify redundant rows
-    //关键代码，详情见ConstraintMatrixAnalyzer.cpp
+    //关键具体代码，详情见ConstraintMatrixAnalyzer.cpp
     AutoConstraintMatrixAnalyzer analyzer;
+
+    // analyze函数代码参考
     analyzer->analyze( constraintMatrix, m, n );
 
     ENGINE_LOG( Stringf( "Number of redundant rows: %u out of %u",
@@ -588,11 +591,25 @@ void Engine::removeRedundantEquations( const double *constraintMatrix )
     }
 }
 ```
-[back](#18-processinputquery)
+```
+removeRedundantEquations函数中的analyze部分中gauss消元前后，_martix矩阵分别的结果：
+ 1  -1   0   0   0   0  
+-1   0  -1   0   0   0  
+ 0   0   0   1  -1   0  
+ 0  -1   0   1   0   0  
+ 0   0  -1   0   0  -1  
 
-回到processInputQuery()中的selectInitialVariablesForBasis()
+ 1  -1   0   0   0   0  
+ 0  -1   0  -1   0   0  
+ 0   0   1   0  -1   0  
+ 0   0   0   1   1   0  
+ 0   0   0   0   1  -1 
+```
+[analyzer->analyze()函数具体分析](./removeRedundantEquations-anlyze().md)
 
-## 1.12. selectInitialVariablesForBasis()
+[回到顶部](#18-processinputquery)
+
+## 1.11. selectInitialVariablesForBasis()
 
 ```c++
 //This method permutes rows and columns in the constraint matrix (prior to the addition of auxiliary variables), in order to obtain a set of column that constitue a lower triangular matrix. The variables corresponding to the columns of this matrix join the initial basis.(It is possible that not enough variables are obtained this way, in which case the initial basis will have to be augmented later).
@@ -759,75 +776,50 @@ void Engine::selectInitialVariablesForBasis( const double *constraintMatrix, Lis
 }
 
 ```
-[back](#18-processinputquery)
+[回到顶部](#18-processinputquery)
+
+
+## 1.12. addAuxiliaryVariables()
+
+添加辅助变量
+
+```cpp
+void Engine::addAuxiliaryVariables()
+{
+    List<Equation> &equations( _preprocessedQuery.getEquations() );
+
+    unsigned m = equations.size();
+    unsigned originalN = _preprocessedQuery.getNumberOfVariables();
+    unsigned n = originalN + m;
+
+    _preprocessedQuery.setNumberOfVariables( n );
+
+    // Add auxiliary variables to the equations and set their bounds
+    unsigned count = 0;
+    for ( auto &eq : equations )
+    {
+        unsigned auxVar = originalN + count;
+        eq.addAddend( -1, auxVar );
+        _preprocessedQuery.setLowerBound( auxVar, eq._scalar );
+        _preprocessedQuery.setUpperBound( auxVar, eq._scalar );
+        eq.setScalar( 0 );
+
+        ++count;
+    }
+}
+```
+[回到顶部](#18-processinputquery)
 
 ## 1.13. initializeTableau()
 
 和tableua.cpp连接起来
 
-```c++
-void Engine::initializeTableau( const double *constraintMatrix, const List<unsigned> &initialBasis )
-{
-    const List<Equation> &equations( _preprocessedQuery.getEquations() );
-    unsigned m = equations.size();
-    unsigned n = _preprocessedQuery.getNumberOfVariables();
-	//定义一个CSR  
-     //见 tableua.cpp
-    _tableau->setDimensions( m, n );
+[详细信息](./Engine-initializeTableau().md)
 
-    adjustWorkMemorySize();
-
-    unsigned equationIndex = 0;
-    for ( const auto &equation : equations )
-    {
-        _tableau->setRightHandSide( equationIndex, equation._scalar );
-        ++equationIndex;
-    }
-
-    // Populate constriant matrix
-    //见 tableua.cpp
-    //转换为csr
-    _tableau->setConstraintMatrix( constraintMatrix );
-
-    for ( unsigned i = 0; i < n; ++i )
-    {
-        _tableau->setLowerBound( i, _preprocessedQuery.getLowerBound( i ) );
-        _tableau->setUpperBound( i, _preprocessedQuery.getUpperBound( i ) );
-    }
-	//没看，边界缩紧有关。
-    _tableau->registerToWatchAllVariables( _rowBoundTightener );
-    _tableau->registerResizeWatcher( _rowBoundTightener );
-
-    _tableau->registerToWatchAllVariables( _constraintBoundTightener );
-    _tableau->registerResizeWatcher( _constraintBoundTightener );
-
-    _rowBoundTightener->setDimensions();
-    _constraintBoundTightener->setDimensions();
-
-    // Register the constraint bound tightener to all the PL constraints
-    for ( auto &plConstraint : _preprocessedQuery.getPiecewiseLinearConstraints() )
-        plConstraint->registerConstraintBoundTightener( _constraintBoundTightener );
-
-    _plConstraints = _preprocessedQuery.getPiecewiseLinearConstraints();
-    for ( const auto &constraint : _plConstraints )
-    {
-        constraint->registerAsWatcher( _tableau );
-        constraint->setStatistics( &_statistics );
-    }
-	//初始化单纯形表中的基变量
-    _tableau->initializeTableau( initialBasis );
-
-    _costFunctionManager->initialize();
-    _tableau->registerCostFunctionManager( _costFunctionManager );
-    _activeEntryStrategy->initialize( _tableau );
-
-    _statistics.setNumPlConstraints( _plConstraints.size() );
-}
-```
-[back](#18-processinputquery)
+[回到顶部](#17-processinputquery)
 
 接下来，就该
 
 ## 1.14. engine.solve()
 
-另开一篇
+[参阅Engine-solve()](./engine.solve().md)

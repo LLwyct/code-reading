@@ -9,25 +9,35 @@ invoke这一步主要做了四件事，都很重要
 
 2. 在addPlAuxiliaryEquations()函数中遍历_plconstrant，对于每一个约束添加辅助变量，把所有的ReLU约束转换为等式加入inputQuery的_equtions。
 
-Relu约束可描述为 _b -> _f,由于ReLU函数的性质，可以轻松知道 f >= b
-通过移项和添加辅助变量可转换为：
-f - b >= 0
-f - b - aux == 0 && aux >= 0
-其中aux即为新的辅助变量，把辅助变量加入变量组，并把等式f - b + aux == 0加入_equtions
+    在这里，由于有两个ReLU函数，因此_equtions的长度从3增加到5
 
-3. 在预处理数据的时候，很多信息都存放在inputQuery中，这里主战场已经来到了Engine上，因此这一步的操作是把inputQuery赋值给Engine的_preprocessedQuery，便于后续操作
+    Relu约束可描述为 _b -> _f,由于ReLU函数的性质，可以轻松知道 f >= b
+    通过移项和添加辅助变量可转换为：
+    f - b >= 0
+    f - b - aux == 0 && aux >= 0
+    其中aux即为新的辅助变量，把辅助变量加入变量组，并把等式f - b + aux == 0加入_equtions
 
-4. 返回处理后的InputQuery，_processor
+3. 甚至还消除了冗余变量？
+   
+   ```cpp
+   if ( attemptVariableElimination )
+        eliminateVariables();
+   ```
+   
+   这里存疑一下，
+
+4. 在预处理数据的时候，很多信息都存放在inputQuery中，这里主战场已经来到了Engine上，因此这一步的操作是把inputQuery赋值给Engine的_preprocessedQuery，便于后续操作
+
+5. 返回处理后的InputQuery，_processor
 
 ---
 
 invokePreprocesser函数主要执行了下面这个函数
 
 
-```cpp
-
-_preprocessedQuery = _preprocessor.preprocess(inputQuery, GlobalConfiguration::PREPROCESSOR_ELIMINATE_VARIABLES);
-```
+`
+_preprocessedQuery = _preprocessor.preprocess(inputQuery, 一个Golbal参数);
+`
 
 ```cpp
 InputQuery Preprocessor::preprocess( const InputQuery &query, bool attemptVariableElimination )
@@ -79,6 +89,7 @@ InputQuery Preprocessor::preprocess( const InputQuery &query, bool attemptVariab
         f - b >= 0
         f - b - aux == 0 && aux >= 0
         其中aux即为新的辅助变量，把辅助变量加入变量组，并把等式f - b + aux == 0加入_equtions
+        在这里，由于有两个ReLU函数，因此_equtions的长度从3增加到5
     */
     if ( GlobalConfiguration::PREPROCESSOR_PL_CONSTRAINTS_ADD_AUX_EQUATIONS )
         addPlAuxiliaryEquations();
@@ -116,11 +127,18 @@ InputQuery Preprocessor::preprocess( const InputQuery &query, bool attemptVariab
             _statistics->ppIncNumTighteningIterations();
     }
 
+    /**
+    收集迄今为止所有使用过的变量到一个set<unsigned> usedVariables里，
+    但似乎最终目的不是为了这个，而是为了得到所有上界等于下界的变量，并储存到
+    Map<unsigned, double> _fixedVariables中
+
+    最终目的是：所有的FixedValue和MergeValue都要被消除，这一步是为了收集Fixed和Merged变量。
+    */
     collectFixedValues();
     separateMergedAndFixed();
 
     /**
-    尝试消除变量
+    尝试消除Fixed和Merged变量
     */
     if ( attemptVariableElimination )
         eliminateVariables();
@@ -134,3 +152,83 @@ InputQuery Preprocessor::preprocess( const InputQuery &query, bool attemptVariab
 [进入processEquations().md](./processEquations.md)
 
 [返回index.md](./index.md)
+
+### 函数eliminateVariables()
+---
+
+目的是找到，属于Fixed或Merge变量，但是不属于输入输出变量的变量，要把这些变量消除
+
+目前已经看到的，从NLR中的nerouToVariables消除，从_equtions中消除。
+
+如果一个eqution的全部addend被消除，那么这个eqution也会被消除。
+
+让分段线性约束知道任何已消除的变量，如果约束过时，则删除它们本身。
+
+---
+
+依我目前的理解，就是消除上下界都为0的变量（或是上下界统一的变量？这样可以视为一个常数），在简单例子中，经过推算，x4和x6是上下界都为0的变量，因此要消除，因此x5和x7要向前推成x4和x5（从x0开始计算）。
+
+
+举例：原_eqution[2]中，存在
+$$
+-x5 + x3 + x4 = -0
+$$
+移项
+$$
+-x5 + x3 = -0 - x4
+$$
+因为x4等于0
+$$
+-x5 + x3 = -0
+$$
+x5下标向前推1
+$$
+-x4 + x3 = -0
+$$
+
+```cpp
+while ( equation != equations.end() )
+{
+     // Each equation is of the form sum(addends) = scalar. So, any fixed variable
+     // needs to be subtracted from the scalar. Merged variables should have already
+     // been removed, so we don't care about them
+     List<Equation::Addend>::iterator addend = equation->_addends.begin();
+     while ( addend != equation->_addends.end() )
+     {
+         ASSERT( !_mergedVariables.exists( addend->_variable ) );
+
+          // 该变量需要消除，移项、乘系数、改scalar
+         if ( _fixedVariables.exists( addend->_variable ) )
+         {
+             // Addend has to go...
+             double constant = _fixedVariables.at( addend->_variable ) * addend->_coefficient;
+             equation->_scalar -= constant;
+             addend = equation->_addends.erase( addend );
+         }
+         // 不需要消除，更新下标
+         else
+         {
+             // Adjust the addend's variable index
+             addend->_variable = _oldIndexToNewIndex.at( addend->_variable );
+             ++addend;
+         }
+     }
+
+     // If all the addends have been removed, we remove the entire equation.
+     // Overwise, we are done here.
+     // 如果一个等式的addends全部被删，则删除该等式。
+     if ( equation->_addends.empty() )
+     {
+         if ( _statistics )
+             _statistics->ppIncNumEquationsRemoved();
+
+         // No addends left, scalar should be 0
+         if ( !FloatUtils::isZero( equation->_scalar ) )
+             throw InfeasibleQueryException();
+         else
+             equation = equations.erase( equation );
+     }
+     else
+         ++equation;
+}
+```

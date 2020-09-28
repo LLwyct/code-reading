@@ -1,9 +1,13 @@
+这一部分主要介绍loadQuery()函数
+
 ```cpp
 _inputQuery = QueryLoader::loadQuery( inputQueryFilePath );
 ```
 
-- 输入参数：查询的文件路径
-- 返回值：InputQuery对象
+loadQuery函数：
+
+- 参数：查询的文件路径
+- 返回值：[InputQuery对象](./InputQuery.md)
 
 
 这一部分的主要内容是初始化inputQuery，看一看inputQuery的主要成员。
@@ -31,7 +35,8 @@ public:
 参考：[InputQuery对象](inputQuery.md)
 
 ---
-主要分为六个部分
+
+`loadQuery()`主要分为六个部分
 - 处理input变量
 - 处理output变量
 - set lower bounds
@@ -210,3 +215,5 @@ InputQuery QueryLoader::loadQuery( const String &fileName )
 - DisjuctionConstraint
 - MaxConstraint
 - AbsoluteValueConstraint
+
+[返回](./index.md)
