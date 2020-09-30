@@ -1,3 +1,5 @@
+[返回](./index.md)
+
 
 ```c++
 //This method permutes rows and columns in the constraint matrix (prior to the addition of auxiliary variables), in order to obtain a set of column that constitue a lower triangular matrix. The variables corresponding to the columns of this matrix join the initial basis.(It is possible that not enough variables are obtained this way, in which case the initial basis will have to be augmented later).
@@ -187,3 +189,7 @@ void Engine::selectInitialVariablesForBasis( const double *constraintMatrix, Lis
 }
 
 ```
+
+关于最后为什么要转换为下三角矩阵，其实这里转换为上三角矩阵也是可以的，主要是要形式一个阶梯型的矩阵，在阶梯上的每一个元素所在的列的原本的列可以构成线性无关方程组，这些线性无关的列就可以组成基变量。而对于基础案例中m=5,n=6，势必是要多出一列的，而这列就会被舍弃。
+
+假如最后`numTriangularRows < m`,说明找不到一个满秩的线性无关组（阶梯数=m），那么基变量是凑不齐的，会在之后的函数中添加辅助变量来补齐基变量。
