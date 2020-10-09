@@ -1,73 +1,75 @@
 ```cpp
 initializeTableau( const double *constraintMatrix, const List<unsigned> &initialBasis )
 {
-	1、初始化_tableau，设置m、n的值，定义属性
-	   	_tableau->setDimensions( m, n );
+	// 1、初始化_tableau，设置m、n的值，定义属性
+	_tableau->setDimensions( m, n );
 
-	2、清除_work记忆,清空_work
-	  	adjustWorkMemorySize();
+	// 2、清除_work内存,清空_work
+	adjustWorkMemorySize();
 
-	3、方程组等式右边（b向量）设为零	
-	   	unsigned equationIndex = 0;
-	   	for ( const auto &equation : equations )
-    	   {
-        	   _tableau->setRightHandSide( equationIndex, equation._scalar );
-        	   ++equationIndex;
-    	   }
+	// 3、方程组等式右边（_b向量）设为零
+	unsigned equationIndex = 0;
+	for ( const auto &equation : equations ) {
+		// _b[index] = value
+		_tableau->setRightHandSide( equationIndex, equation._scalar );
+		++equationIndex;
+	}
 	
-	4、记录矩阵的非零值
-	   	_tableau->setConstraintMatrix( constraintMatrix );
-	   例：
-	   对矩阵
-	   2 0 3 
-	   5 6 0 
-	   0 2 1 
-	   按行保存到_sparseRowsOfA数组中
-		_sparseRowsOfA[0]:Entry((0,2)),Entry((2,3))
-		_sparseRowsOfA[1]:Entry((0,5)),Entry((1,6))
-		_sparseRowsOfA[2]:Entry((1,1)),Entry((2,1))
-	   按列保存到_sparseColumnsOfA数组中
-		_sparseColumnsOfA[0]:Entry((0,2)),Entry((1,5))
-		_sparseColumnsOfA[1]:Entry((1,6)),Entry((2,2))
-		_sparseColumnsOfA[2]:Entry((0,3)),Entry((2,1))
+	// 4、记录矩阵的非零值
+	// 	_tableau->setConstraintMatrix( constraintMatrix );
+	// 	例：
+	// 	对矩阵
+	// 	2 0 3
+	// 	5 6 0
+	// 	0 2 1
+	// 	按行保存到_sparseRowsOfA数组中
+	// _sparseRowsOfA[0]:Entry((0,2)),Entry((2,3))是指系数矩阵A的第0行有两个非零元素
+	// 第一个是第0个元素，值是2，第二个是第二个元素，值是3.
+	_sparseRowsOfA[0]:Entry((0,2)),Entry((2,3))
+	_sparseRowsOfA[1]:Entry((0,5)),Entry((1,6))
+	_sparseRowsOfA[2]:Entry((1,1)),Entry((2,1))
+	//   按列保存到_sparseColumnsOfA数组中
+	_sparseColumnsOfA[0]:Entry((0,2)),Entry((1,5))
+	_sparseColumnsOfA[1]:Entry((1,6)),Entry((2,2))
+	_sparseColumnsOfA[2]:Entry((0,3)),Entry((2,1))
 
-	5、保存watcher:_rowBoundTightener，_constraintBoundTightener到_globalWatchers列表
-	   保存watcher:_rowBoundTightener，_constraintBoundTightener到_resizeWatchers列表
-	   	_tableau->registerToWatchAllVariables( _rowBoundTightener ); 
-		_tableau->registerResizeWatcher( _rowBoundTightener );
-	 	_tableau->registerToWatchAllVariables( _constraintBoundTightener );
-	   	_tableau->registerResizeWatcher( _constraintBoundTightener );
+	// 5、保存watcher:_rowBoundTightener，_constraintBoundTightener到_globalWatchers列表
+	//    保存watcher:_rowBoundTightener，_constraintBoundTightener到_resizeWatchers列表
+	_tableau->registerToWatchAllVariables( _rowBoundTightener ); 
+	_tableau->registerResizeWatcher( _rowBoundTightener );
+	_tableau->registerToWatchAllVariables( _constraintBoundTightener );
+	_tableau->registerResizeWatcher( _constraintBoundTightener );
 	
-	6、初始化_rowBoundTightener,_constraintBoundTightener,设置m,n的值，定义属性
-	   	_rowBoundTightener->setDimensions();
-    	_constraintBoundTightener->setDimensions();
+	// 6、初始化_rowBoundTightener,_constraintBoundTightener,设置m,n的值，定义属性
+	_rowBoundTightener->setDimensions();
+	_constraintBoundTightener->setDimensions();
 
-	7、_constraintBoundTightener赋值给plConstraint的_constraintBoundTightener属性
-	   for ( auto &plConstraint : _preprocessedQuery.getPiecewiseLinearConstraints() )
-	      plConstraint->registerConstraintBoundTightener( _constraintBoundTightener );
+	// 7、_constraintBoundTightener赋值给plConstraint的_constraintBoundTightener属性
+	for ( auto &plConstraint : _preprocessedQuery.getPiecewiseLinearConstraints() )
+		plConstraint->registerConstraintBoundTightener( _constraintBoundTightener );
 
-	8、对每个变量，记录和它有关的约束，可以通过变量查看和它有关的约束，约束是一个watcher
-	   _statistics赋值给每个约束的_statistics属性，_statistics保存运行过程的一些数据，如运行时间，迭代次数
-	   _plConstraints = _preprocessedQuery.getPiecewiseLinearConstraints();
-    	   for ( const auto &constraint : _plConstraints )
-    	   {
-	       constraint->registerAsWatcher( _tableau );  
-	       constraint->setStatistics( &_statistics );
-    	   }
+	// 8、对每个变量，记录和它有关的约束，可以通过变量查看和它有关的约束，约束是一个watcher
+	//    _statistics赋值给每个约束的_statistics属性，_statistics保存运行过程的一些数据，如运行时间，迭代次数
+	_plConstraints = _preprocessedQuery.getPiecewiseLinearConstraints();
+	for ( const auto &constraint : _plConstraints )
+	{
+		constraint->registerAsWatcher( _tableau );  
+		constraint->setStatistics( &_statistics );
+	}
 	
-	9、计算基本解
-	   _tableau->initializeTableau( initialBasis )
+	// 9、计算基本解
+	_tableau->initializeTableau( initialBasis )
 	
-	  设网络对应的矩阵为A，对A进行行变换，列变换，计算基本解
-	   (1)、非基向量对应变量的值设置为定值，设为它的最小值，将他们移到方程组右边，改变b向量的值;(此时，矩阵包含基向量，b向量)
-	   (2)、使用simplex算法，对基向量组成的矩阵B选择枢轴元素;
+	  	设网络对应的矩阵为A，对A进行行变换，列变换，计算基本解
+	   	(1)、非基向量对应变量的值设置为定值，设为它的最小值，将他们移到方程组右边，改变b向量的值;(此时，矩阵包含基向量，b向量)
+	   	(2)、使用simplex算法，对基向量组成的矩阵B选择枢轴元素;
 	        循环[1]、[2]，直到找到所有的枢轴元素
 	        [1]、选择枢轴元素，3个选择依据
-		  a、找只有一个元素的行，若存在，这个元素作为枢轴元素，不存在，进行下一种选择依据
-		  b、找只有一个元素的列，若存在，这个元素作为枢轴元素，不存在，进行下一种选择依据
-		  c、Markowitz规则，
+			a、找只有一个元素的行，若存在，这个元素作为枢轴元素，不存在，进行下一种选择依据
+			b、找只有一个元素的列，若存在，这个元素作为枢轴元素，不存在，进行下一种选择依据
+			c、Markowitz规则，
 	             寻找min(cost) = min( _numURowElements[uRow] - 1 ) * ( _numUColumnElements[uColumn] - 1 )
-		     花费相同时，取绝对值大的元素
+		     相同时，取绝对值大的元素
 
 		     cost计算示例:
 		     矩阵

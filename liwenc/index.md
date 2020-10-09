@@ -13,9 +13,8 @@
   - [1.10. removeRedundantEquations](#110-removeredundantequations)
   - [1.11. selectInitialVariablesForBasis()](#111-selectinitialvariablesforbasis)
   - [1.12. addAuxiliaryVariables()](#112-addauxiliaryvariables)
-  - [1.13. augmentInitialBasisIfNeeded()](#113-augmentinitialbasisifneeded)
-  - [1.14. initializeTableau()](#114-initializetableau)
-  - [1.15. engine.solve()](#115-enginesolve)
+  - [1.13. initializeTableau()](#113-initializetableau)
+  - [1.14. engine.solve()](#114-enginesolve)
 
 ## 1.1. main.cpp
 
@@ -392,21 +391,19 @@ void Marabou::solveQuery()
 
 ## 1.7. processInputQuery()
 
-[调用预处理器](./invokePreprocesser.md)
+[调用预处理器invokePreprocesser](./invokePreprocesser.md)
 
-[添加辅助变量](./makeAllEquationsEqualities.md)
+[把所有不等式转换为等式makeAllEquationsEqualities](./makeAllEquationsEqualities.md)
 
-[创建约束矩阵](#19-createconstraintmatrix)
+[创建约束矩阵createconstraintmatrix](#19-createconstraintmatrix)
 
-[移除冗余等式](#110-removeredundantequations)
+[移除冗余等式removeredundantequations](#110-removeredundantequations)
 
-[再次添加辅助变量 addauxiliaryvariables](#112-addauxiliaryvariables)
+[选择基变量selectinitialvariablesforbasis](#111-selectinitialvariablesforbasis)
 
-[选择基变量](#111-selectinitialvariablesforbasis)
+[添加辅助变量addauxiliaryvariables](#112-addauxiliaryvariables)
 
-[补充基变量](#113-augmentinitialbasisifneeded)
-
-[初始化单纯形表](#114-initializetableau)
+[初始化单纯形表initializetableau](#113-initializetableau)
 
 ```c++
 //Process the input query and pass the needed information to the underlying tableau. Return false if query is found to be infeasible,true otherwise.
@@ -565,7 +562,7 @@ double *Engine::createConstraintMatrix()
     return constraintMatrix;
 }
 ```
-[回到顶部](#17-processinputquery)
+[回到顶部](#18-processinputquery)
 
 ## 1.10. removeRedundantEquations
 
@@ -623,27 +620,29 @@ removeRedundantEquations函数中的analyze部分中gauss消元前后，_martix�
 ```
 [analyzer->analyze()函数具体分析](./removeRedundantEquations-anlyze().md)
 
-[回到顶部](#17-processinputquery)
+[回到顶部](#18-processinputquery)
 
 ## 1.11. selectInitialVariablesForBasis()
 
 [详细信息](./selectInitialVariablesForBasis().md)
 
-[回到顶部](#17-processinputquery)
+[回到顶部](#18-processinputquery)
 
 
 ## 1.12. addAuxiliaryVariables()
 
 这一步是添加m个辅助变量，目的是把等式右侧的Scala设为0
 例如：
-```
+```cpp
 x1 + x2 + x3 = 3
+// 两边同时-3，把等式右边变成0
 x1 + x2 + x3 -3 = 0
+// 把左边的-3变为辅助变量
 x1 + x2 + x3 + x4 = 0
 ```
 其中x4的上下界都是-3
 
-因此在添加完辅助变量之后，等式数量不变，还是m，变量数为n+m
+因此在添加完辅助变量之后，等式数量不变，还是m，变量数从n变为n+m，因为只要有一个等式就会出现一个辅助变量
 
 ```cpp
 void Engine::addAuxiliaryVariables()
@@ -672,36 +671,7 @@ void Engine::addAuxiliaryVariables()
 ```
 [回到顶部](#18-processinputquery)
 
-## 1.13. augmentInitialBasisIfNeeded()
-
-这是一个比较简单的函数，我们之前在`selectInitialVariablesForBasis()`中提到过，如果基变量选择时无法选满m个线性无关变量，那么就会在这一步补充，填满m个Basis变量，其实这个BasisVariables是不是应该翻译为基变量，我不太确定，这个先搁置一下。
-
-在补充时，我们之前提到过在选择基变量时，会先构造一个下三角矩阵，是从上往下构造的，因此这个basicRow就当前阶梯矩阵的最下面那一行以其之下的行（要注意，这里的行号不一定等于下标，而是行变换之前的下标，因为最下面一行有可能是从其他行换过来的，看具体代码）。
-```cpp
-for ( unsigned i = numTriangularRows; i < m; ++i )
-{
-    // 这里是rowOrdering[i]，而不是i
-    basicRows.append( rowOrdering[i] );
-}
-```
-
-要注意的是这里的n已经“进化”过了，是n = originalN + m，再基本例子中是11。
-
-```cpp
-void Engine::augmentInitialBasisIfNeeded( List<unsigned> &initialBasis, const List<unsigned> &basicRows )
-{
-    unsigned m = _preprocessedQuery.getEquations().size(); // 5
-    unsigned n = _preprocessedQuery.getNumberOfVariables();// 11
-    unsigned originalN = n - m;                            // 6
-
-    if ( initialBasis.size() != m )
-    {
-        for ( const auto &basicRow : basicRows )
-            initialBasis.append( basicRow + originalN );
-    }
-}
-```
-## 1.14. initializeTableau()
+## 1.13. initializeTableau()
 
 和tableua.cpp连接起来
 
@@ -711,6 +681,6 @@ void Engine::augmentInitialBasisIfNeeded( List<unsigned> &initialBasis, const Li
 
 接下来，就该
 
-## 1.15. engine.solve()
+## 1.14. engine.solve()
 
 [参阅Engine-solve()](./engine.solve().md)
