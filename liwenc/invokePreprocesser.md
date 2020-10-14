@@ -1,11 +1,13 @@
 ## 1.9. preprocessor()
 
-invoke这一步主要做了四件事，都很重要
-1. 在makeAllEquationsEqualities()函数中，把InputQuery的Equtions里的全部等式类型转化为EQ类型。
-在我自己给出的例子中，全都是EQ类型，因此不需要转化，全部continue了。
--V1+V0 = -0
--V2-V0 = -0
--V5+V3+V4 = -0
+invoke函数概览：这一步主要做了四件事，都很重要
+1. 在makeAllEquationsEqualities()函数中，把InputQuery的Equtions里的全部等式类型转化为EQ类型。在我自己给出的例子中，全都是EQ类型，因此不需要转化，全部continue了。(**这里相当于单纯形中的化标准型，下一步同理**)
+
+    -V1+V0 = -0
+
+    -V2-V0 = -0
+
+    -V5+V3+V4 = -0
 
 2. 在addPlAuxiliaryEquations()函数中遍历_plconstrant，对于每一个约束添加辅助变量，把所有的ReLU约束转换为等式加入inputQuery的_equtions。
 
@@ -13,18 +15,21 @@ invoke这一步主要做了四件事，都很重要
 
     Relu约束可描述为 _b -> _f,由于ReLU函数的性质，可以轻松知道 f >= b
     通过移项和添加辅助变量可转换为：
-    f - b >= 0
-    f - b - aux == 0 && aux >= 0
-    其中aux即为新的辅助变量，把辅助变量加入变量组，并把等式f - b + aux == 0加入_equtions
 
-3. 甚至还消除了冗余变量？
+    b - f <= 0
+
+    b - f + aux = 0 && aux >= 0
+
+    其中aux即为新的辅助变量，把辅助变量加入变量组，并把等式b - f + aux = 0加入_equtions
+
+3. 消除了冗余变量，在这里是消除了上下界相等的变量
    
    ```cpp
    if ( attemptVariableElimination )
         eliminateVariables();
    ```
    
-   这里存疑一下，
+   这里存疑一下，到底消除的是上下界相等且为0的变量，还是上下界只要相等就消除。目前默认为前者。
 
 4. 在预处理数据的时候，很多信息都存放在inputQuery中，这里主战场已经来到了Engine上，因此这一步的操作是把inputQuery赋值给Engine的_preprocessedQuery，便于后续操作
 
@@ -106,8 +111,7 @@ InputQuery Preprocessor::preprocess( const InputQuery &query, bool attemptVariab
 
     /**
     1. 进行边界束紧
-    比如在121的例子里，有-X1 + X0 = 0,并且我们的property_try.txt文件指明，x0属于[0.5, 1],那么可借此把
-    X1的上下界也约束在[0.5, 1]里
+    比如在121的例子里，有-X1 + X0 = 0,并且我们的property_try.txt文件指明，x0属于[0.5, 1],那么可借此把X1的上下界也约束在[0.5, 1]里。这里关于边界束紧做了两次，第一次是用Eqution做，第二次是用Constraint
     */
     bool continueTightening = true;
     while ( continueTightening )
@@ -232,3 +236,5 @@ while ( equation != equations.end() )
          ++equation;
 }
 ```
+
+[返回index.md](./index.md)

@@ -141,7 +141,7 @@ bool Preprocessor::processEquations()
                     ( excludedFromLB.empty() ||
                       ( excludedFromLB.size() == 1 && excludedFromLB.exists( xi ) ) );
                 /**
-                 * 判断是否可以缩紧shang界
+                 * 判断是否可以缩紧上界
                  */
                 validUb =
                     ( ( type == Equation::GE ) || ( type == Equation::EQ ) )

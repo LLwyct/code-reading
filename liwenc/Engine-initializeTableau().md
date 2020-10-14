@@ -1,22 +1,38 @@
+<font size=3>
+
 ```cpp
 initializeTableau( const double *constraintMatrix, const List<unsigned> &initialBasis )
 {
+	/**
+     *  入参constraintMatrix，且下面的setRightHandSide[0-4]都是0
+     *   1	-1	 0	 0	 0	 0	-1	 0	 0	 0	 0 | 0
+        -1	 0	-1	 0	 0	 0	 0	-1	 0	 0	 0 | 0
+         0	 0	 0	 1	-1	 0	 0	 0	-1	 0	 0 | 0
+         0	-1	 0	 1	 0	 0	 0	 0	 0	-1	 0 | 0
+         0	 0	-1	 0	 0	-1	 0	 0	 0	 0	-1 | 0
+     */
+	const List<Equation> &equations( _preprocessedQuery.getEquations() );
+    unsigned m = equations.size();
+    unsigned n = _preprocessedQuery.getNumberOfVariables();
 	// 1、初始化_tableau，设置m、n的值，定义属性
 	_tableau->setDimensions( m, n );
 
 	// 2、清除_work内存,清空_work
 	adjustWorkMemorySize();
 
-	// 3、方程组等式右边（_b向量）设为零
+	// 3、给方程组等式右边（_b向量）赋值
 	unsigned equationIndex = 0;
 	for ( const auto &equation : equations ) {
-		// _b[index] = value
+		// _tableau._b[equationIndex] = equation._scalar;
 		_tableau->setRightHandSide( equationIndex, equation._scalar );
 		++equationIndex;
 	}
-	
-	// 4、记录矩阵的非零值
-	// 	_tableau->setConstraintMatrix( constraintMatrix );
+	/**
+     * 把constraintMatrix转置一下，并复制一份到_tableau._denseA。
+     * 并且构建一个稀疏矩阵_sparseColumnsOfA、_sparseRowsOfA
+    */
+	_tableau->setConstraintMatrix( constraintMatrix );
+	// 4、记录矩阵的非零值（构建稀疏矩阵）
 	// 	例：
 	// 	对矩阵
 	// 	2 0 3
@@ -25,22 +41,22 @@ initializeTableau( const double *constraintMatrix, const List<unsigned> &initial
 	// 	按行保存到_sparseRowsOfA数组中
 	// _sparseRowsOfA[0]:Entry((0,2)),Entry((2,3))是指系数矩阵A的第0行有两个非零元素
 	// 第一个是第0个元素，值是2，第二个是第二个元素，值是3.
-	_sparseRowsOfA[0]:Entry((0,2)),Entry((2,3))
-	_sparseRowsOfA[1]:Entry((0,5)),Entry((1,6))
-	_sparseRowsOfA[2]:Entry((1,1)),Entry((2,1))
+	// _sparseRowsOfA[0]:Entry((0,2)),Entry((2,3))
+	// _sparseRowsOfA[1]:Entry((0,5)),Entry((1,6))
+	// _sparseRowsOfA[2]:Entry((1,1)),Entry((2,1))
 	//   按列保存到_sparseColumnsOfA数组中
-	_sparseColumnsOfA[0]:Entry((0,2)),Entry((1,5))
-	_sparseColumnsOfA[1]:Entry((1,6)),Entry((2,2))
-	_sparseColumnsOfA[2]:Entry((0,3)),Entry((2,1))
+	// _sparseColumnsOfA[0]:Entry((0,2)),Entry((1,5))
+	// _sparseColumnsOfA[1]:Entry((1,6)),Entry((2,2))
+	// _sparseColumnsOfA[2]:Entry((0,3)),Entry((2,1))
 
-	// 5、保存watcher:_rowBoundTightener，_constraintBoundTightener到_globalWatchers列表
-	//    保存watcher:_rowBoundTightener，_constraintBoundTightener到_resizeWatchers列表
+	// 5、保存watcher:_rowBoundTightener, _constraintBoundTightener到_globalWatchers列表
+	//    保存watcher:_rowBoundTightener, _constraintBoundTightener到_resizeWatchers列表
 	_tableau->registerToWatchAllVariables( _rowBoundTightener ); 
 	_tableau->registerResizeWatcher( _rowBoundTightener );
 	_tableau->registerToWatchAllVariables( _constraintBoundTightener );
 	_tableau->registerResizeWatcher( _constraintBoundTightener );
 	
-	// 6、初始化_rowBoundTightener,_constraintBoundTightener,设置m,n的值，定义属性
+	// 6、初始化_rowBoundTightener,_constraintBoundTightener,设置m,n的值,定义属性
 	_rowBoundTightener->setDimensions();
 	_constraintBoundTightener->setDimensions();
 
@@ -92,20 +108,24 @@ initializeTableau( const double *constraintMatrix, const List<unsigned> &initial
 	   	   0 2 1 
 		   i=1,j=1,Bij=6;
 		   k=2,Bkj=2;
-		   (0 2 1 0) = (0 2 1 0)-(5 6 3 0)/6*2
+		   (0 2 1) = (0 2 1)-(5 6 3 0)/6*2 = (-5/3 0 0)
+
+		   2 0 3 
+	   	   5 6 3
+		-5/3 0 0
 	  (3)、对矩阵A进行行变换，列变换，使得基变量对应的矩阵块变为单位矩阵;
 	  (4)、b向量的值即为所求基本解。
 
 	  基本解计算示例：
 	  (1)非基变量设为定值后，矩阵A变为：
-	     2 0 3 3
-	     5 6 3 4
-	     0 2 1 5
+	     2 0 3 |3
+	     5 6 3 |4
+	     0 2 1 |5 scalar
 	  (2)矩阵B选枢轴元素，作枢轴变换
 	     变换后的矩阵：
-	     0     0     3
-	     5     6     3
-	     -5/3  0     0 
+	     0     0     3    3
+	     5     6     3    4
+	     -5/3  0     0   11/3 
 	     枢轴元素为 （1,1）（2,0）（0,2）
 	  (3)矩阵A变为
 	       y2 y1 y3  b
@@ -126,3 +146,4 @@ initializeTableau( const double *constraintMatrix, const List<unsigned> &initial
 		
 }
 ```
+</font>

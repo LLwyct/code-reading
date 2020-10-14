@@ -1,3 +1,5 @@
+<font size=3>
+
 # 1. Marabou 执行流程
 
 - [1. Marabou 执行流程](#1-marabou-执行流程)
@@ -466,9 +468,9 @@ bool Engine::processInputQuery( InputQuery &inputQuery, bool preprocess )
         selectInitialVariablesForBasis( constraintMatrix, initialBasis, basicRows );
         //将等式右边全部变为0，通过添加辅助变量
         addAuxiliaryVariables();
-        //不懂
+        // 略
         augmentInitialBasisIfNeeded( initialBasis, basicRows );
-		//不懂
+		// 略
         storeEquationsInDegradationChecker();
 
         // The equations have changed, recreate the constraint matrix
@@ -508,6 +510,42 @@ bool Engine::processInputQuery( InputQuery &inputQuery, bool preprocess )
 ```
 [回到顶部](#18-processinputquery)
 ## 1.8. invokePreprocesser()
+
+invoke函数概览：这一步主要做了四件事，都很重要
+1. 在makeAllEquationsEqualities()函数中，把InputQuery的Equtions里的全部等式类型转化为EQ类型。在我自己给出的例子中，全都是EQ类型，因此不需要转化，全部continue了。(**这里相当于单纯形中的化标准型，下一步同理**)
+
+    -V1+V0 = -0
+
+    -V2-V0 = -0
+
+    -V5+V3+V4 = -0
+
+2. 在addPlAuxiliaryEquations()函数中遍历_plconstrant，对于每一个约束添加辅助变量，把所有的ReLU约束转换为等式加入inputQuery的_equtions。
+
+    在这里，由于有两个ReLU函数，因此_equtions的长度从3增加到5
+
+    Relu约束可描述为 _b -> _f,由于ReLU函数的性质，可以轻松知道 f >= b
+    通过移项和添加辅助变量可转换为：
+
+    b - f <= 0
+
+    b - f + aux = 0 && aux >= 0
+
+    其中aux即为新的辅助变量，把辅助变量加入变量组，并把等式b - f + aux = 0加入_equtions
+
+3. 甚至还消除了冗余变量？
+   
+   ```cpp
+   if ( attemptVariableElimination )
+        eliminateVariables();
+   ```
+   
+   这里存疑一下，
+
+4. 在预处理数据的时候，很多信息都存放在inputQuery中，这里主战场已经来到了Engine上，因此这一步的操作是把inputQuery赋值给Engine的_preprocessedQuery，便于后续操作
+
+5. 返回处理后的InputQuery，_processor
+
 [invokePreprocesser详细资料](./invokePreprocesser.md)
 
 ## 1.9. createConstraintMatrix()
@@ -562,7 +600,7 @@ double *Engine::createConstraintMatrix()
     return constraintMatrix;
 }
 ```
-[回到顶部](#18-processinputquery)
+[回到顶部](#13-prepareinputquery)
 
 ## 1.10. removeRedundantEquations
 
@@ -624,6 +662,8 @@ removeRedundantEquations函数中的analyze部分中gauss消元前后，_martix�
 
 ## 1.11. selectInitialVariablesForBasis()
 
+**选择基变量**
+
 [详细信息](./selectInitialVariablesForBasis().md)
 
 [回到顶部](#18-processinputquery)
@@ -631,7 +671,8 @@ removeRedundantEquations函数中的analyze部分中gauss消元前后，_martix�
 
 ## 1.12. addAuxiliaryVariables()
 
-这一步是添加m个辅助变量，目的是把等式右侧的Scala设为0
+**这一步是添加m个辅助变量，目的是把等式右侧的Scala设为0**
+
 例如：
 ```cpp
 x1 + x2 + x3 = 3
@@ -684,3 +725,5 @@ void Engine::addAuxiliaryVariables()
 ## 1.14. engine.solve()
 
 [参阅Engine-solve()](./engine.solve().md)
+
+</font>
