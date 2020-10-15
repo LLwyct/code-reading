@@ -1,3 +1,5 @@
+<font size=3>
+
 [回到首页](./index.md)
 
 # 1. engine
@@ -5,7 +7,6 @@
 - [1. engine](#1-engine)
   - [1.1. engine.solve()](#11-enginesolve)
   - [1.2. Engine::updateDirections()](#12-engineupdatedirections)
-  - [1.3. 略](#13-略)
 
 ## 1.1. engine.solve()
 
@@ -20,7 +21,46 @@
     {
         try
         {   
+            DEBUG( _tableau->verifyInvariants() );
 
+            mainLoopStatistics();
+            if ( _verbosity > 1 &&  _statistics.getNumMainLoopIterations() %
+                 GlobalConfiguration::STATISTICS_PRINTING_FREQUENCY == 0 )
+                _statistics.print();
+
+            // Check whether progress has been made recently
+            checkOverallProgress();
+
+            // If the basis has become malformed, we need to restore it
+            // 如果basis变得畸形，我们需要恢复它
+            if ( basisRestorationNeeded() )
+            {
+                if ( _basisRestorationRequired == Engine::STRONG_RESTORATION_NEEDED )
+                {
+                    performPrecisionRestoration( PrecisionRestorer::RESTORE_BASICS );
+                    _basisRestorationPerformed = Engine::PERFORMED_STRONG_RESTORATION;
+                }
+                else
+                {
+                    performPrecisionRestoration( PrecisionRestorer::DO_NOT_RESTORE_BASICS );
+                    _basisRestorationPerformed = Engine::PERFORMED_WEAK_RESTORATION;
+                }
+
+                _numVisitedStatesAtPreviousRestoration = _statistics.getNumVisitedTreeStates();
+                _basisRestorationRequired = Engine::RESTORATION_NOT_NEEDED;
+                continue;
+            }
+
+            // Restoration is not required
+            _basisRestorationPerformed = Engine::NO_RESTORATION_PERFORMED;
+
+            // Possible restoration due to preceision degradation
+            // 由于精度下降，进行精度恢复
+            if ( shouldCheckDegradation() && highDegradation() )
+            {
+                performPrecisionRestoration( PrecisionRestorer::RESTORE_BASICS );
+                continue;
+            }
 			//eta 是否为空  基矩阵是否可用
             if ( _tableau->basisMatrixAvailable() )
                 //收缩边界 通过xB = inv(B)*b - inv(B)*An
@@ -59,6 +99,9 @@
             {
                 // The linear portion of the problem has been solved.
                 // Check the status of the PL constraints
+                /**
+                 * 为什么在121的例子中，当执行到下面的函数后，PlConstraints为空？
+                 */
                 collectViolatedPlConstraints();
 
                 // If all constraints are satisfied, we are possibly done
@@ -72,6 +115,7 @@
                             printf( "Before declaring sat, recomputing...\n" );
                         }
                         // Make sure that the assignment is precise before declaring success
+                        // 再次调用这个函数，重新计算
                         _tableau->computeAssignment();
                         continue;
                     }
@@ -134,7 +178,7 @@ void Engine::updateDirections()
 [回到顶部](#1-engine)
 
 [回到首页](./index.md)
-## 1.3. 略
 
 
 
+</font>
