@@ -87,6 +87,7 @@ void Engine::selectInitialVariablesForBasis( const double *constraintMatrix, Lis
             /*
             numTriangularRows指向当前已构成的下三角矩阵的最下面一行的下一行
             就是找到一个只有一个元素的行，然后和当前下三角矩阵的最下面一行的下一行换，以构成一个更大的下三角矩阵。
+            在第一次交换时，就是把第一个找到的只有一个非零元素的行和第一行交换
             */
             temp = rowOrdering[singletonRow];
             rowOrdering[singletonRow] = rowOrdering[numTriangularRows];

@@ -1,4 +1,4 @@
-## 1.9. preprocessor()
+## 1.9. invokePreprocessor()
 
 invoke函数概览：这一步主要做了四件事，都很重要
 1. 在makeAllEquationsEqualities()函数中，把InputQuery的Equtions里的全部等式类型转化为EQ类型。在我自己给出的例子中，全都是EQ类型，因此不需要转化，全部continue了。(**这里相当于单纯形中的化标准型，下一步同理**)
